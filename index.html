@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Präsentations Karaoke</title>
     <style>
-        /* DSGVO-KONFORMES STYLING 
-           Keine externen Fonts oder Libraries. 
+        /* DSGVO-KONFORMES STYLING
+           Keine externen Fonts oder Libraries.
            Alles läuft lokal im Browser.
         */
         :root {
@@ -228,7 +228,7 @@
         .random-btn:active {
             transform: translateY(0);
         }
-        
+
         .random-btn:disabled {
             background-color: #cbd5e1;
             cursor: not-allowed;
@@ -254,7 +254,7 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             padding: 1.5rem;
-            display: none; 
+            display: none;
             animation: fadeIn 0.5s ease-out;
             border: 1px solid var(--border-color);
         }
@@ -330,6 +330,99 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+
+        /* --- NEU: Abstimmungsbereich --- */
+        .voting-area {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            display: none; /* Initial hidden */
+            animation: fadeIn 0.5s ease-out;
+            margin-top: 2rem;
+        }
+
+        .voting-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .voting-stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+            color: var(--text-muted);
+        }
+
+        .stat-item strong {
+            color: var(--text-main);
+            font-size: 1.3rem;
+        }
+
+        .voting-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .vote-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            background: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .vote-btn:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            transform: scale(1.1);
+        }
+
+        .vote-btn:active {
+            background: var(--primary-light);
+            transform: scale(0.95);
+        }
+
+        /* Leaderboard */
+        .leaderboard-area {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .leaderboard-table th, .leaderboard-table td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .leaderboard-table th {
+            font-weight: 600;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
@@ -355,7 +448,7 @@
                     <button onclick="selectAll(false)">Auswahl aufheben</button>
                 </div>
             </div>
-            
+
             <div id="file-grid" class="file-grid">
                 <!-- Hier werden die PDFs per Javascript eingefügt -->
             </div>
@@ -385,18 +478,62 @@
                 <span id="file-title">Noch nichts ausgewählt</span>
                 <button class="fullscreen-btn" onclick="toggleFullscreen()">
                     <svg class="icon" style="width:18px; height:18px;" viewBox="0 0 24 24">
-                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2-2h3"></path>
                     </svg>
                     Vollbild
                 </button>
             </div>
-            
+
             <div class="iframe-wrapper" id="iframeWrapper">
                 <iframe id="pdfViewer" src="" title="PDF Vorschau"></iframe>
                 <div class="no-pdf-support">
                     <p>Dein Browser unterstützt keine PDF-Vorschau.</p>
                 </div>
             </div>
+        </div>
+
+        <!-- Abstimmungsbereich -->
+        <div id="voting-area" class="voting-area">
+            <div class="voting-header">
+                <h2>Publikums-Wertung</h2>
+                <p class="subtitle">Wie hat dir der Vortrag gefallen? (1 = Naja, 10 = Super)</p>
+            </div>
+
+            <div class="voting-stats">
+                <div class="stat-item">Stimmen: <strong id="vote-count">0</strong></div>
+                <div class="stat-item">Durchschnitt: <strong id="vote-average">-</strong></div>
+            </div>
+
+            <div class="voting-buttons">
+                <button class="vote-btn" onclick="addVote(1)">1</button>
+                <button class="vote-btn" onclick="addVote(2)">2</button>
+                <button class="vote-btn" onclick="addVote(3)">3</button>
+                <button class="vote-btn" onclick="addVote(4)">4</button>
+                <button class="vote-btn" onclick="addVote(5)">5</button>
+                <button class="vote-btn" onclick="addVote(6)">6</button>
+                <button class="vote-btn" onclick="addVote(7)">7</button>
+                <button class="vote-btn" onclick="addVote(8)">8</button>
+                <button class="vote-btn" onclick="addVote(9)">9</button>
+                <button class="vote-btn" onclick="addVote(10)">10</button>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="leaderboard-area" id="leaderboard-area">
+            <h3>Rangliste</h3>
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Platz</th>
+                        <th>Thema</th>
+                        <th>Note</th>
+                        <th>Stimmen</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body">
+                    <!-- Rows -->
+                </tbody>
+            </table>
         </div>
     </main>
 
@@ -435,10 +572,23 @@
         const fileTitle = document.getElementById('file-title');
         const iframeWrapper = document.getElementById('iframeWrapper');
 
+        // Voting Elemente
+        const votingArea = document.getElementById('voting-area');
+        const voteCountEl = document.getElementById('vote-count');
+        const voteAverageEl = document.getElementById('vote-average');
+        const leaderboardArea = document.getElementById('leaderboard-area');
+        const leaderboardBody = document.getElementById('leaderboard-body');
+
+        // Voting State
+        let currentVotes = [];
+        let currentFileIndex = -1;
+        let sessionResults = []; // { filename: string, average: number, count: number }
+
         // Initialisierung
         function init() {
             renderFileList();
             updateUIState();
+            updateLeaderboard();
         }
 
         // Hilfsfunktion: Dateinamen schön formatieren
@@ -450,7 +600,7 @@
         // Liste rendern
         function renderFileList() {
             fileGrid.innerHTML = '';
-            
+
             if (pdfFiles.length === 0) {
                 fileGrid.innerHTML = '<div style="color:red; padding:10px;">Bitte Dateinamen im Code eintragen!</div>';
                 return;
@@ -500,7 +650,7 @@
         function updateUIState() {
             const count = selectedIndices.size;
             countDisplay.textContent = count;
-            
+
             if (count === 0) {
                 randomBtn.disabled = true;
                 randomBtn.title = "Bitte wähle mindestens ein Thema aus";
@@ -516,7 +666,7 @@
         function pickRandomPdf() {
             // Array aus dem Set machen
             const activeIndices = Array.from(selectedIndices);
-            
+
             if (activeIndices.length === 0) {
                 alert("Bitte wähle mindestens ein Thema aus!");
                 return;
@@ -526,18 +676,108 @@
             const randomPick = activeIndices[Math.floor(Math.random() * activeIndices.length)];
             const selectedFile = pdfFiles[randomPick];
 
+            // State Update
+            currentFileIndex = randomPick;
+            currentVotes = [];
+            resetVotingUI();
+
             // UI Update
             fileTitle.textContent = formatFilename(selectedFile);
-            
+
             // PDF laden
             const pdfParams = "#toolbar=0&navpanes=0&view=FitH";
             const timestamp = new Date().getTime();
-            
+
             pdfViewer.src = `${pdfFolder}${selectedFile}?t=${timestamp}${pdfParams}`;
 
-            // Container anzeigen und zum Player scrollen
+            // Container anzeigen
             previewContainer.style.display = "block";
+            votingArea.style.display = "block"; // Voting anzeigen
+
+            // Zum Player scrollen
             previewContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // --- Voting Logic ---
+
+        function resetVotingUI() {
+            voteCountEl.textContent = "0";
+            voteAverageEl.textContent = "-";
+        }
+
+        function addVote(score) {
+            if (currentFileIndex === -1) return;
+
+            currentVotes.push(score);
+            updateVotingStats();
+            updateSessionResult();
+        }
+
+        function updateVotingStats() {
+            const count = currentVotes.length;
+            const sum = currentVotes.reduce((a, b) => a + b, 0);
+            const avg = count > 0 ? (sum / count).toFixed(1) : "-";
+
+            voteCountEl.textContent = count;
+            voteAverageEl.textContent = avg;
+        }
+
+        function updateSessionResult() {
+            const filename = pdfFiles[currentFileIndex];
+            const sum = currentVotes.reduce((a, b) => a + b, 0);
+            const count = currentVotes.length;
+            const avg = count > 0 ? sum / count : 0;
+
+            let entryIndex = sessionResults.findIndex(e => e.filename === filename);
+
+            if (entryIndex >= 0) {
+                sessionResults[entryIndex] = { filename, average: avg, count };
+            } else {
+                sessionResults.push({ filename, average: avg, count });
+            }
+
+            updateLeaderboard();
+        }
+
+        function updateLeaderboard() {
+            // Sortieren nach Note (absteigend)
+            const sorted = [...sessionResults].sort((a, b) => b.average - a.average);
+
+            leaderboardBody.innerHTML = '';
+
+            if (sorted.length === 0) {
+                leaderboardArea.style.display = 'none';
+                return;
+            }
+
+            leaderboardArea.style.display = 'block';
+
+            sorted.forEach((entry, index) => {
+                const tr = document.createElement('tr');
+
+                // Platz
+                const tdRank = document.createElement('td');
+                tdRank.textContent = index + 1 + ".";
+
+                // Name
+                const tdName = document.createElement('td');
+                tdName.textContent = formatFilename(entry.filename);
+
+                // Note
+                const tdScore = document.createElement('td');
+                tdScore.innerHTML = `<strong>${entry.average.toFixed(1)}</strong>`;
+
+                // Stimmen
+                const tdCount = document.createElement('td');
+                tdCount.textContent = entry.count;
+
+                tr.appendChild(tdRank);
+                tr.appendChild(tdName);
+                tr.appendChild(tdScore);
+                tr.appendChild(tdCount);
+
+                leaderboardBody.appendChild(tr);
+            });
         }
 
         // Vollbild Logik
