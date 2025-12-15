@@ -363,37 +363,28 @@
         }
 
         .voting-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
+            display: none; /* Hidden, using mobile voting */
         }
 
-        .vote-btn {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            border: 2px solid var(--border-color);
-            background: white;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-main);
-            cursor: pointer;
-            transition: all 0.2s;
+        /* QR Code Container */
+        .qr-area {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            margin-bottom: 1.5rem;
+            gap: 10px;
         }
 
-        .vote-btn:hover {
-            border-color: var(--primary-color);
-            color: var(--primary-color);
-            transform: scale(1.1);
+        #qrcode {
+            padding: 10px;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
         }
 
-        .vote-btn:active {
-            background: var(--primary-light);
-            transform: scale(0.95);
+        .qr-hint {
+            font-size: 0.9rem;
+            color: var(--text-muted);
         }
 
         /* Leaderboard */
@@ -496,25 +487,17 @@
         <div id="voting-area" class="voting-area">
             <div class="voting-header">
                 <h2>Publikums-Wertung</h2>
-                <p class="subtitle">Wie hat dir der Vortrag gefallen? (1 = Naja, 10 = Super)</p>
+                <p class="subtitle">Scanne den QR-Code um abzustimmen!</p>
+            </div>
+
+            <div class="qr-area">
+                <div id="qrcode"></div>
+                <div class="qr-hint">Oder gehe auf: <span id="vote-url">...</span></div>
             </div>
 
             <div class="voting-stats">
                 <div class="stat-item">Stimmen: <strong id="vote-count">0</strong></div>
                 <div class="stat-item">Durchschnitt: <strong id="vote-average">-</strong></div>
-            </div>
-
-            <div class="voting-buttons">
-                <button class="vote-btn" onclick="addVote(1)">1</button>
-                <button class="vote-btn" onclick="addVote(2)">2</button>
-                <button class="vote-btn" onclick="addVote(3)">3</button>
-                <button class="vote-btn" onclick="addVote(4)">4</button>
-                <button class="vote-btn" onclick="addVote(5)">5</button>
-                <button class="vote-btn" onclick="addVote(6)">6</button>
-                <button class="vote-btn" onclick="addVote(7)">7</button>
-                <button class="vote-btn" onclick="addVote(8)">8</button>
-                <button class="vote-btn" onclick="addVote(9)">9</button>
-                <button class="vote-btn" onclick="addVote(10)">10</button>
             </div>
         </div>
 
@@ -541,6 +524,7 @@
         &copy; 2025 Präsentations Karaoke - DSGVO Konform & Lokal
     </footer>
 
+    <script src="js/qrcode.min.js"></script>
     <script>
         /**
          * KONFIGURATION
@@ -676,11 +660,6 @@
             const randomPick = activeIndices[Math.floor(Math.random() * activeIndices.length)];
             const selectedFile = pdfFiles[randomPick];
 
-            // State Update
-            currentFileIndex = randomPick;
-            currentVotes = [];
-            resetVotingUI();
-
             // UI Update
             fileTitle.textContent = formatFilename(selectedFile);
 
@@ -692,67 +671,113 @@
 
             // Container anzeigen
             previewContainer.style.display = "block";
-            votingArea.style.display = "block"; // Voting anzeigen
+            votingArea.style.display = "block";
 
             // Zum Player scrollen
             previewContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // --- SERVER SYNC START ---
+            notifyServerStart(selectedFile);
+            // --- SERVER SYNC END ---
         }
 
-        // --- Voting Logic ---
+        // --- Voting Logic (Server based) ---
+
+        let statsInterval = null;
+
+        function notifyServerStart(filename) {
+            const formData = new FormData();
+            formData.append('filename', filename);
+
+            fetch('api.php?action=start_topic', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                resetVotingUI();
+                renderQRCode();
+                startPolling();
+            })
+            .catch(err => console.error("API Error", err));
+        }
+
+        function renderQRCode() {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = ''; // Clear previous
+
+            // Determine URL (assume vote.php is in same dir)
+            // Use PHP-injected IP if available, or fall back to window.location
+            // Since this file is now .php, we could use PHP to inject IP, but simple JS works for generic access
+            // But for mobile to scan, 'localhost' won't work.
+
+            // Try to use window.location, but replace 'localhost' with machine IP if possible?
+            // Client side JS cannot easily get LAN IP.
+            // So we rely on the user accessing index.php via LAN IP, OR we assume PHP helped us.
+            // Let's use the current hostname.
+
+            const protocol = window.location.protocol;
+            const host = window.location.hostname;
+            const port = window.location.port ? ':' + window.location.port : '';
+
+            // Construct base URL
+            let baseUrl = `${protocol}//${host}${port}`;
+
+            // Get path to vote.php (removing index.php or trailing slash)
+            let path = window.location.pathname;
+            path = path.substring(0, path.lastIndexOf('/'));
+
+            const voteUrl = `${baseUrl}${path}/vote.php`;
+
+            document.getElementById('vote-url').textContent = voteUrl;
+
+            new QRCode(qrContainer, {
+                text: voteUrl,
+                width: 150,
+                height: 150
+            });
+        }
 
         function resetVotingUI() {
             voteCountEl.textContent = "0";
             voteAverageEl.textContent = "-";
         }
 
-        function addVote(score) {
-            if (currentFileIndex === -1) return;
-
-            currentVotes.push(score);
-            updateVotingStats();
-            updateSessionResult();
+        function startPolling() {
+            if (statsInterval) clearInterval(statsInterval);
+            statsInterval = setInterval(fetchStats, 2000); // Poll every 2s
+            fetchStats(); // Immediate
         }
 
-        function updateVotingStats() {
-            const count = currentVotes.length;
-            const sum = currentVotes.reduce((a, b) => a + b, 0);
-            const avg = count > 0 ? (sum / count).toFixed(1) : "-";
+        function fetchStats() {
+            fetch('api.php?action=get_status')
+            .then(r => r.json())
+            .then(data => {
+                // Update Current Stats
+                if (data.current) {
+                    voteCountEl.textContent = data.current.count;
+                    voteAverageEl.textContent = data.current.average;
+                }
 
-            voteCountEl.textContent = count;
-            voteAverageEl.textContent = avg;
+                // Update Leaderboard
+                if (data.leaderboard) {
+                    updateLeaderboard(data.leaderboard);
+                }
+            })
+            .catch(console.error);
         }
 
-        function updateSessionResult() {
-            const filename = pdfFiles[currentFileIndex];
-            const sum = currentVotes.reduce((a, b) => a + b, 0);
-            const count = currentVotes.length;
-            const avg = count > 0 ? sum / count : 0;
-
-            let entryIndex = sessionResults.findIndex(e => e.filename === filename);
-
-            if (entryIndex >= 0) {
-                sessionResults[entryIndex] = { filename, average: avg, count };
-            } else {
-                sessionResults.push({ filename, average: avg, count });
-            }
-
-            updateLeaderboard();
-        }
-
-        function updateLeaderboard() {
-            // Sortieren nach Note (absteigend)
-            const sorted = [...sessionResults].sort((a, b) => b.average - a.average);
-
+        function updateLeaderboard(sortedResults) {
             leaderboardBody.innerHTML = '';
 
-            if (sorted.length === 0) {
+            if (!sortedResults || sortedResults.length === 0) {
                 leaderboardArea.style.display = 'none';
                 return;
             }
 
             leaderboardArea.style.display = 'block';
 
-            sorted.forEach((entry, index) => {
+            sortedResults.forEach((entry, index) => {
                 const tr = document.createElement('tr');
 
                 // Platz
@@ -765,11 +790,11 @@
 
                 // Note
                 const tdScore = document.createElement('td');
-                tdScore.innerHTML = `<strong>${entry.average.toFixed(1)}</strong>`;
+                tdScore.innerHTML = `<strong>${entry.average}</strong>`;
 
                 // Stimmen
                 const tdCount = document.createElement('td');
-                tdCount.textContent = entry.count;
+                tdCount.textContent = (entry.votes ? entry.votes.length : 0);
 
                 tr.appendChild(tdRank);
                 tr.appendChild(tdName);
